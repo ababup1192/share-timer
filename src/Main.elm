@@ -1,11 +1,20 @@
-module Main exposing (main)
+port module Main exposing (main)
 
 import Browser
 import Browser.Events exposing (onAnimationFrame)
-import Html exposing (Html, button, div, p, text)
+import Browser.Navigation as Nav
+import Html exposing (button, div, p, text)
 import Html.Events exposing (onClick)
+import Json.Encode as JE
 import Task
 import Time
+import Url
+
+
+port createShareTimer : JE.Value -> Cmd msg
+
+
+port getShareTimerId : (String -> msg) -> Sub msg
 
 
 
@@ -14,11 +23,13 @@ import Time
 
 main : Program () Model Msg
 main =
-    Browser.element
+    Browser.application
         { init = init
         , update = update
         , view = view
         , subscriptions = subscriptions
+        , onUrlChange = UrlChanged
+        , onUrlRequest = LinkClicked
         }
 
 
@@ -27,20 +38,36 @@ main =
 
 
 type alias Model =
-    { stoppedTime : Int
+    { key : Nav.Key
+    , url : Url.Url
+    , shareTimerId : String
+    , stoppedTime : Int
     , time : Int
     , lastStartedAtMaybe : Maybe Int
     , totalTime : Int
     }
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
-    ( { stoppedTime = 0, time = 0, lastStartedAtMaybe = Nothing, totalTime = 0 }, Cmd.none )
+init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+init _ url key =
+    ( { url = url
+      , key = key
+      , shareTimerId = ""
+      , stoppedTime = 0
+      , time = 0
+      , lastStartedAtMaybe = Nothing
+      , totalTime = 0
+      }
+    , Cmd.none
+    )
 
 
 type Msg
-    = Tick Time.Posix
+    = LinkClicked Browser.UrlRequest
+    | UrlChanged Url.Url
+    | Tick Time.Posix
+    | CreateShareTimer
+    | GotShareTimerId String
     | Start
     | Stop
     | Reset
@@ -68,6 +95,19 @@ update msg model =
                     True
     in
     case msg of
+        LinkClicked urlRequest ->
+            case urlRequest of
+                Browser.Internal url ->
+                    ( model
+                    , Nav.pushUrl model.key (Url.toString url)
+                    )
+
+                Browser.External href ->
+                    ( model, Nav.load href )
+
+        UrlChanged url ->
+            ( { model | url = url }, Cmd.none )
+
         Tick now ->
             ( { model
                 | time =
@@ -80,6 +120,17 @@ update msg model =
               }
             , Cmd.none
             )
+
+        CreateShareTimer ->
+            ( model
+            , createShareTimer <|
+                JE.object
+                    [ ( "totalTime", JE.int model.totalTime )
+                    ]
+            )
+
+        GotShareTimerId shareTimerId ->
+            ( { model | shareTimerId = shareTimerId }, Nav.replaceUrl model.key <| "#" ++ shareTimerId )
 
         Start ->
             if model.totalTime /= 0 then
@@ -127,38 +178,48 @@ update msg model =
 -- VIEW
 
 
-view : Model -> Html Msg
+view : Model -> Browser.Document Msg
 view model =
     let
         restTotalTime =
             model.totalTime - model.time
     in
-    div []
-        [ p [ onClick <| PlusN -1 ] [ text "-" ]
-        , p [] [ text <| (String.padLeft 2 '0' <| String.fromInt <| restTotalTime // (60 * 1000)) ++ ":" ++ (String.padLeft 2 '0' <| String.fromInt <| modBy (60 * 1000) restTotalTime // 1000) ]
-        , p [ onClick <| PlusN 1 ] [ text "+" ]
-        , button [ onClick Start ]
-            [ text "start"
+    { title = "share timer"
+    , body =
+        [ div []
+            [ p [ onClick <| PlusN -1 ] [ text "-" ]
+            , p [] [ text <| (String.padLeft 2 '0' <| String.fromInt <| restTotalTime // (60 * 1000)) ++ ":" ++ (String.padLeft 2 '0' <| String.fromInt <| modBy (60 * 1000) restTotalTime // 1000) ]
+            , p [ onClick <| PlusN 1 ] [ text "+" ]
+            , button [ onClick CreateShareTimer ]
+                [ text "share timer"
+                ]
+            , button [ onClick Start ]
+                [ text "start"
+                ]
+            , button [ onClick Stop ]
+                [ text "stop"
+                ]
+            , button [ onClick <| PlusN 2 ]
+                [ text "+2"
+                ]
+            , button [ onClick <| PlusN 5 ]
+                [ text "+5"
+                ]
+            , button [ onClick <| PlusN 10 ]
+                [ text "+10"
+                ]
+            , button [ onClick <| PlusN 30 ]
+                [ text "+30"
+                ]
+            , p [ onClick Reset ] [ text "Reset" ]
             ]
-        , button [ onClick Stop ]
-            [ text "stop"
-            ]
-        , button [ onClick <| PlusN 2 ]
-            [ text "+2"
-            ]
-        , button [ onClick <| PlusN 5 ]
-            [ text "+5"
-            ]
-        , button [ onClick <| PlusN 10 ]
-            [ text "+10"
-            ]
-        , button [ onClick <| PlusN 30 ]
-            [ text "+30"
-            ]
-        , p [ onClick Reset ] [ text "Reset" ]
         ]
+    }
 
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    onAnimationFrame Tick
+    Sub.batch
+        [ onAnimationFrame Tick
+        , getShareTimerId GotShareTimerId
+        ]
