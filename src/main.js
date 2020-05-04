@@ -22,6 +22,8 @@ const app = Elm.Main.init({ node: document.getElementById("main") });
 
 const shareTimers = "shareTimers";
 
+Notification.requestPermission();
+
 app.ports.createShareTimer.subscribe(async (data) => {
   const documentId = (await db.collection(shareTimers).add(data)).id;
   app.ports.getShareTimerId.send(documentId);
@@ -38,6 +40,13 @@ app.ports.accessShareTimer.subscribe((documentId) => {
 });
 
 app.ports.saveShareTimer.subscribe((data) => {
-  console.log(data);
   db.collection(shareTimers).doc(data.shareTimerId).set(data);
+});
+
+app.ports.notifyTimeUp.subscribe((_) => {
+  if (!("Notification" in window)) {
+    alert("時間になりました。");
+  } else if (Notification.permission === "granted") {
+    new Notification("時間になりました。");
+  }
 });

@@ -28,6 +28,9 @@ port getShareTimerId : (String -> msg) -> Sub msg
 port getShareTimer : (JE.Value -> msg) -> Sub msg
 
 
+port notifyTimeUp : () -> Cmd msg
+
+
 
 -- MAIN
 
@@ -160,17 +163,30 @@ update msg model =
             ( { model | url = url }, Cmd.none )
 
         Tick now ->
-            ( { model
-                | time =
+            let
+                time =
                     case model.lastStartedAtMaybe of
                         Just lastStartedAt ->
                             calcTime now lastStartedAt
 
                         Nothing ->
                             model.stoppedTime
-              }
-            , Cmd.none
-            )
+            in
+            if time >= model.totalTime then
+                ( { model
+                    | time = model.totalTime
+                    , lastStartedAtMaybe = Nothing
+                    , stoppedTime = model.totalTime
+                  }
+                , if model.lastStartedAtMaybe /= Nothing then
+                    notifyTimeUp ()
+
+                  else
+                    Cmd.none
+                )
+
+            else
+                ( { model | time = time }, Cmd.none )
 
         CreateShareTimer ->
             ( model
