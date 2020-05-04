@@ -5,16 +5,27 @@ import Browser.Events exposing (onAnimationFrame)
 import Browser.Navigation as Nav
 import Html exposing (button, div, p, text)
 import Html.Events exposing (onClick)
+import Json.Decode as JD
 import Json.Encode as JE
 import Task
 import Time
 import Url
+import Url.Parser as Parser
 
 
 port createShareTimer : JE.Value -> Cmd msg
 
 
+port saveShareTimer : JE.Value -> Cmd msg
+
+
+port accessShareTimer : String -> Cmd msg
+
+
 port getShareTimerId : (String -> msg) -> Sub msg
+
+
+port getShareTimer : (JE.Value -> msg) -> Sub msg
 
 
 
@@ -40,7 +51,7 @@ main =
 type alias Model =
     { key : Nav.Key
     , url : Url.Url
-    , shareTimerId : String
+    , shareTimerIdMaybe : Maybe String
     , stoppedTime : Int
     , time : Int
     , lastStartedAtMaybe : Maybe Int
@@ -50,15 +61,27 @@ type alias Model =
 
 init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init _ url key =
+    let
+        urlParser =
+            Parser.fragment identity
+
+        shareTimerIdMaybe =
+            Maybe.andThen identity <| Parser.parse urlParser url
+    in
     ( { url = url
       , key = key
-      , shareTimerId = ""
+      , shareTimerIdMaybe = shareTimerIdMaybe
       , stoppedTime = 0
       , time = 0
       , lastStartedAtMaybe = Nothing
       , totalTime = 0
       }
-    , Cmd.none
+    , case shareTimerIdMaybe of
+        Just shareTimerId ->
+            accessShareTimer shareTimerId
+
+        Nothing ->
+            Cmd.none
     )
 
 
@@ -68,6 +91,7 @@ type Msg
     | Tick Time.Posix
     | CreateShareTimer
     | GotShareTimerId String
+    | GotShareTimer JE.Value
     | Start
     | Stop
     | Reset
@@ -78,6 +102,16 @@ type Msg
 
 
 -- UPDATE
+
+
+jsonEncodeMaybeInt : Maybe Int -> JE.Value
+jsonEncodeMaybeInt maybeInt =
+    case maybeInt of
+        Just int ->
+            JE.int int
+
+        Nothing ->
+            JE.null
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -93,6 +127,23 @@ update msg model =
 
                 Nothing ->
                     True
+
+        createdShareTimerJsonValue =
+            JE.object
+                [ ( "totalTime", JE.int model.totalTime )
+                , ( "lastStartedAtMaybe", jsonEncodeMaybeInt model.lastStartedAtMaybe )
+                , ( "stoppedTime", JE.int model.stoppedTime )
+                , ( "time", JE.int model.time )
+                ]
+
+        savedShareTimerJsonValue newModel shareTimerId =
+            JE.object
+                [ ( "totalTime", JE.int newModel.totalTime )
+                , ( "lastStartedAtMaybe", jsonEncodeMaybeInt newModel.lastStartedAtMaybe )
+                , ( "stoppedTime", JE.int newModel.stoppedTime )
+                , ( "time", JE.int newModel.time )
+                , ( "shareTimerId", JE.string shareTimerId )
+                ]
     in
     case msg of
         LinkClicked urlRequest ->
@@ -123,18 +174,30 @@ update msg model =
 
         CreateShareTimer ->
             ( model
-            , createShareTimer <|
-                JE.object
-                    [ ( "totalTime", JE.int model.totalTime )
-                    ]
+            , createShareTimer createdShareTimerJsonValue
             )
 
         GotShareTimerId shareTimerId ->
-            ( { model | shareTimerId = shareTimerId }, Nav.replaceUrl model.key <| "#" ++ shareTimerId )
+            ( { model | shareTimerIdMaybe = Just shareTimerId }, Nav.replaceUrl model.key <| "#" ++ shareTimerId )
+
+        GotShareTimer json ->
+            case JD.decodeValue shareTimerDecoder json of
+                Ok { totalTime, lastStartedAtMaybe, stoppedTime, time } ->
+                    ( { model
+                        | totalTime = totalTime
+                        , lastStartedAtMaybe = lastStartedAtMaybe
+                        , stoppedTime = stoppedTime
+                        , time = time
+                      }
+                    , Cmd.none
+                    )
+
+                Err _ ->
+                    ( model, Cmd.none )
 
         Start ->
             if model.totalTime /= 0 then
-                ( model, Task.perform SetLastStartedAt Time.now )
+                ( model, Cmd.batch [ Task.perform SetLastStartedAt Time.now ] )
 
             else
                 ( model, Cmd.none )
@@ -149,7 +212,18 @@ update msg model =
 
         Reset ->
             if isStop then
-                ( { model | stoppedTime = 0, time = 0 }, Cmd.none )
+                let
+                    newModel =
+                        { model | stoppedTime = 0, time = 0 }
+                in
+                ( newModel
+                , Maybe.withDefault Cmd.none <|
+                    Maybe.map
+                        (\shareTimerId ->
+                            saveShareTimer <| savedShareTimerJsonValue newModel shareTimerId
+                        )
+                        model.shareTimerIdMaybe
+                )
 
             else
                 ( model, Cmd.none )
@@ -162,16 +236,53 @@ update msg model =
                 ( model, Cmd.none )
 
         SetStoppedTime lastStartedAt now ->
-            ( { model
-                | stoppedTime =
-                    calcTime now lastStartedAt
-                , lastStartedAtMaybe = Nothing
-              }
-            , Cmd.none
+            let
+                newModel =
+                    { model
+                        | stoppedTime =
+                            calcTime now lastStartedAt
+                        , lastStartedAtMaybe = Nothing
+                    }
+            in
+            ( newModel
+            , Maybe.withDefault Cmd.none <|
+                Maybe.map
+                    (\shareTimerId ->
+                        saveShareTimer <| savedShareTimerJsonValue newModel shareTimerId
+                    )
+                    model.shareTimerIdMaybe
             )
 
         SetLastStartedAt now ->
-            ( { model | lastStartedAtMaybe = Just <| Time.posixToMillis now }, Cmd.none )
+            let
+                newModel =
+                    { model | lastStartedAtMaybe = Just <| Time.posixToMillis now }
+            in
+            ( newModel
+            , Maybe.withDefault Cmd.none <|
+                Maybe.map
+                    (\shareTimerId ->
+                        saveShareTimer <| savedShareTimerJsonValue newModel shareTimerId
+                    )
+                    model.shareTimerIdMaybe
+            )
+
+
+type alias ShareTimer =
+    { totalTime : Int
+    , lastStartedAtMaybe : Maybe Int
+    , stoppedTime : Int
+    , time : Int
+    }
+
+
+shareTimerDecoder : JD.Decoder ShareTimer
+shareTimerDecoder =
+    JD.map4 ShareTimer
+        (JD.field "totalTime" JD.int)
+        (JD.field "lastStartedAtMaybe" <| JD.maybe JD.int)
+        (JD.field "stoppedTime" <| JD.int)
+        (JD.field "time" <| JD.int)
 
 
 
@@ -222,4 +333,5 @@ subscriptions _ =
     Sub.batch
         [ onAnimationFrame Tick
         , getShareTimerId GotShareTimerId
+        , getShareTimer GotShareTimer
         ]

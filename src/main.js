@@ -20,7 +20,24 @@ const db = firebase.firestore();
 
 const app = Elm.Main.init({ node: document.getElementById("main") });
 
+const shareTimers = "shareTimers";
+
 app.ports.createShareTimer.subscribe(async (data) => {
-  const documentId = (await db.collection("shareTimers").add(data)).id;
+  const documentId = (await db.collection(shareTimers).add(data)).id;
   app.ports.getShareTimerId.send(documentId);
+});
+
+app.ports.accessShareTimer.subscribe((documentId) => {
+  db.collection(shareTimers)
+    .doc(documentId)
+    .onSnapshot((shareTimerDoc) => {
+      if (shareTimerDoc.exists) {
+        app.ports.getShareTimer.send(shareTimerDoc.data());
+      }
+    });
+});
+
+app.ports.saveShareTimer.subscribe((data) => {
+  console.log(data);
+  db.collection(shareTimers).doc(data.shareTimerId).set(data);
 });
