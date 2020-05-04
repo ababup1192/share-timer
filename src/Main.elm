@@ -194,7 +194,9 @@ update msg model =
             )
 
         GotShareTimerId shareTimerId ->
-            ( { model | shareTimerIdMaybe = Just shareTimerId }, Nav.replaceUrl model.key <| "#" ++ shareTimerId )
+            ( { model | shareTimerIdMaybe = Just shareTimerId }
+            , Cmd.batch [ Nav.replaceUrl model.key <| "#" ++ shareTimerId, accessShareTimer shareTimerId ]
+            )
 
         GotShareTimer json ->
             case JD.decodeValue shareTimerDecoder json of
