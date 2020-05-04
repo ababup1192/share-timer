@@ -47,6 +47,8 @@ app.ports.notifyTimeUp.subscribe((_) => {
   if (!("Notification" in window)) {
     alert("時間になりました。");
   } else if (Notification.permission === "granted") {
-    new Notification("時間になりました。");
+    new Notification("Share Timer", {
+      body: "時間になりました。",
+    });
   }
 });

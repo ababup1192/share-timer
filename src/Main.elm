@@ -77,7 +77,7 @@ init _ url key =
       , stoppedTime = 0
       , time = 0
       , lastStartedAtMaybe = Nothing
-      , totalTime = 0
+      , totalTime = 5000
       }
     , case shareTimerIdMaybe of
         Just shareTimerId ->
