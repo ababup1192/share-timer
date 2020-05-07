@@ -1,8 +1,9 @@
 @import "~css-wipe";
 
 body {
-  color: #222;
-  font-family: sans-serif;
+  color: #2c3e50;
+  font-family: "Roboto Mono", Helvetica, Arial, sans-serif;
+  font-size: 20x;
   line-height: 1.5;
 }
 
@@ -11,4 +12,51 @@ body {
   padding: 60px 15px;
   margin-right: auto;
   margin-left: auto;
+
+  .el_reset {
+    font-size: 20px;
+  }
+}
+
+.bl_timer {
+  display: flex;
+  font-size: 55px;
+
+  p {
+    margin-left: 16px;
+  }
+
+  .el_button {
+    cursor: pointer;
+  }
+
+  .el_share_button {
+    cursor: pointer;
+    font-size: 30px;
+    margin-top: 16px;
+    margin-left: 26px;
+  }
+}
+
+.bl_buttons {
+  display: flex;
+  flex-wrap: wrap;
+  width: 300px;
+
+  button {
+    cursor: pointer;
+    margin-top: 16px;
+    margin-left: 6px;
+    font-size: 20px;
+    padding: 16px;
+    border: 1px solid #ccc;
+    outline: none;
+    background-color: #fff;
+  }
+}
+
+.el_reset {
+  cursor: pointer;
+  margin-top: 10px;
+  margin-left: 24px;
 }

@@ -3,7 +3,8 @@ port module Main exposing (main)
 import Browser
 import Browser.Events exposing (onAnimationFrame)
 import Browser.Navigation as Nav
-import Html exposing (button, div, p, text)
+import Html exposing (button, div, i, p, text)
+import Html.Attributes exposing (class)
 import Html.Events exposing (onClick)
 import Json.Decode as JD
 import Json.Encode as JE
@@ -99,6 +100,7 @@ type Msg
     | Stop
     | Reset
     | PlusN Int
+    | ResetTime
     | SetLastStartedAt Time.Posix
     | SetStoppedTime Int Time.Posix
 
@@ -253,6 +255,13 @@ update msg model =
             else
                 ( model, Cmd.none )
 
+        ResetTime ->
+            if isStop then
+                ( { model | totalTime = 0 }, Cmd.none )
+
+            else
+                ( model, Cmd.none )
+
         SetStoppedTime lastStartedAt now ->
             let
                 newModel =
@@ -315,32 +324,38 @@ view model =
     in
     { title = "share timer"
     , body =
-        [ div []
-            [ p [ onClick <| PlusN -1 ] [ text "-" ]
-            , p [] [ text <| (String.padLeft 2 '0' <| String.fromInt <| restTotalTime // (60 * 1000)) ++ ":" ++ (String.padLeft 2 '0' <| String.fromInt <| modBy (60 * 1000) restTotalTime // 1000) ]
-            , p [ onClick <| PlusN 1 ] [ text "+" ]
-            , button [ onClick CreateShareTimer ]
-                [ text "share timer"
+        [ div [ class "ly_cont" ]
+            [ div [ class "bl_timer" ]
+                [ p [ onClick <| PlusN -1, class "el_button" ] [ text "-" ]
+                , p [] [ text <| (String.padLeft 2 '0' <| String.fromInt <| restTotalTime // (60 * 1000)) ++ ":" ++ (String.padLeft 2 '0' <| String.fromInt <| modBy (60 * 1000) restTotalTime // 1000) ]
+                , p [ onClick <| PlusN 1, class "el_button" ] [ text "+" ]
+                , i [ class "fas fa-share-square el_share_button", onClick CreateShareTimer ] []
                 ]
-            , button [ onClick Start ]
-                [ text "start"
+            , div
+                [ class "bl_buttons" ]
+                [ button [ onClick Start ]
+                    [ text "start"
+                    ]
+                , button [ onClick Stop ]
+                    [ text "stop"
+                    ]
+                , button [ onClick <| PlusN 2 ]
+                    [ text "+2"
+                    ]
+                , button [ onClick <| PlusN 5 ]
+                    [ text "+5"
+                    ]
+                , button [ onClick <| PlusN 10 ]
+                    [ text "+10"
+                    ]
+                , button [ onClick <| PlusN 30 ]
+                    [ text "+30"
+                    ]
+                , button [ onClick ResetTime ]
+                    [ text "0"
+                    ]
                 ]
-            , button [ onClick Stop ]
-                [ text "stop"
-                ]
-            , button [ onClick <| PlusN 2 ]
-                [ text "+2"
-                ]
-            , button [ onClick <| PlusN 5 ]
-                [ text "+5"
-                ]
-            , button [ onClick <| PlusN 10 ]
-                [ text "+10"
-                ]
-            , button [ onClick <| PlusN 30 ]
-                [ text "+30"
-                ]
-            , p [ onClick Reset ] [ text "Reset" ]
+            , p [ onClick Reset, class "el_reset" ] [ text "Reset" ]
             ]
         ]
     }
