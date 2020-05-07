@@ -26,6 +26,20 @@ body {
     margin-left: 16px;
   }
 
+  .el_timeup {
+    color: #f14568;
+    animation: blink 1.5s ease-in-out infinite alternate;
+  }
+
+  @keyframes blink {
+    0% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+
   .el_button {
     cursor: pointer;
   }
@@ -52,6 +66,16 @@ body {
     border: 1px solid #ccc;
     outline: none;
     background-color: #fff;
+  }
+
+  .el_start {
+    background-color: #3298dc;
+    color: white;
+  }
+
+  .el_stop {
+    background-color: #f14568;
+    color: white;
   }
 }
 

@@ -321,22 +321,33 @@ view model =
     let
         restTotalTime =
             model.totalTime - model.time
+
+        isTimeup =
+            (model.totalTime == model.time) && (model.totalTime /= 0)
     in
     { title = "share timer"
     , body =
         [ div [ class "ly_cont" ]
             [ div [ class "bl_timer" ]
                 [ p [ onClick <| PlusN -1, class "el_button" ] [ text "-" ]
-                , p [] [ text <| (String.padLeft 2 '0' <| String.fromInt <| restTotalTime // (60 * 1000)) ++ ":" ++ (String.padLeft 2 '0' <| String.fromInt <| modBy (60 * 1000) restTotalTime // 1000) ]
+                , p
+                    [ class <|
+                        if isTimeup then
+                            "el_timeup"
+
+                        else
+                            ""
+                    ]
+                    [ text <| (String.padLeft 2 '0' <| String.fromInt <| restTotalTime // (60 * 1000)) ++ ":" ++ (String.padLeft 2 '0' <| String.fromInt <| modBy (60 * 1000) restTotalTime // 1000) ]
                 , p [ onClick <| PlusN 1, class "el_button" ] [ text "+" ]
                 , i [ class "fas fa-share-square el_share_button", onClick CreateShareTimer ] []
                 ]
             , div
                 [ class "bl_buttons" ]
-                [ button [ onClick Start ]
+                [ button [ onClick Start, class "el_start" ]
                     [ text "start"
                     ]
-                , button [ onClick Stop ]
+                , button [ onClick Stop, class "el_stop" ]
                     [ text "stop"
                     ]
                 , button [ onClick <| PlusN 2 ]
